@@ -50,6 +50,19 @@ class SpreadsheetCategorizer():
                     for c in [self.p, self.d, self.a_s, self.a_d]])
         df.apply(self._read_line, axis=1)
 
+    def search_key(self, s):
+        "Convert s to regex and search in self.dct keys for partial match."
+        rx = re.compile(s)
+        keys = self.dct.keys()
+        matches = [k for k in keys if re.search(rx, k, re.IGNORECASE)]
+        if not matches:
+            return None
+        if len(matches) > 1:
+            err = "Multiple keys matches search pattern {}".format(rx)
+            raise KeyError(err)
+        else:
+            return matches[0]
+
     def match(self, p, d):
         "Match P and D with dict"
         for keypd in self.payee_desc_dct:
