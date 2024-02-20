@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 import re
 import pandas as pd
+import logging
+import pprint
 import pdb
+
+
+logging.basicConfig(format='%(levelname)s:%(message)s')
+lg = logging.getLogger("lg")
+lg.setLevel(logging.INFO)
 
 
 class SpreadsheetCategorizer():
@@ -10,6 +17,7 @@ class SpreadsheetCategorizer():
 
     def create_categorizer(self, spreadsheet_path, sheet_name):
         "Parse spreadsheet and create categorizer dicts."
+        lg.debug('Created categorizer with file: {}'.format(spreadsheet_path))
         df = pd.read_excel(spreadsheet_path, engine='odf',
                            sheet_name=sheet_name)
         self.payee_desc_dct, self.payee_dct, self.desc_dct = {}, {}, {}
