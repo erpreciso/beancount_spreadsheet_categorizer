@@ -18,11 +18,12 @@ class SpreadsheetCategorizer():
             self.d = 'description'
             self.a_s = 'account-source'
             self.a_d = 'account-destination'
-        self.create_categorizer(spreadsheet_path, sheet_name)
+        self.dct = {}
+        self._create(spreadsheet_path, sheet_name)
 
-    def print_dict(self, dct):
+    def print_dct(self):
         pp = pprint.PrettyPrinter(indent=2)
-        pp.pprint(dct)
+        pp.pprint(self.dct)
 
     def _read_line(self, line):
         "Parse a line from the spreadsheet and update dict"
@@ -40,7 +41,7 @@ class SpreadsheetCategorizer():
             else:
                 self.dct[payee] = [val]
 
-    def create_categorizer(self, spreadsheet_path, sheet_name):
+    def _create(self, spreadsheet_path, sheet_name):
         "Parse spreadsheet and create categorizer dicts."
         lg.debug('Created categorizer with file: {}'.format(spreadsheet_path))
         df = pd.read_excel(spreadsheet_path, engine='odf',
