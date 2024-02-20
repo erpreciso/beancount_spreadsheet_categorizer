@@ -25,22 +25,20 @@ class SpreadsheetCategorizer():
         pp.pprint(dct)
 
     def _read_line(self, line):
-        "Parse a line from the spreadsheet and update dicts"
-        payee, desc = line[self.p], line[self.d]
-        acc_source, acc_dest = line[self.a_s], line[self.a_d]
-        if not pd.isnull(acc_source):
-            if not pd.isnull(payee) and not pd.isnull(desc):
-                keypd = "|".join([payee, desc])
-                self.payee_desc_dct[keypd] = {self.p: str(payee),
-                                              self.d: desc,
-                                              self.a_s: acc_source,
-                                              self.a_d: acc_dest}
-            elif not pd.isnull(payee):
-                self.payee_dct[str(payee)] = {self.a_s: acc_source,
-                                              self.a_d: acc_dest}
-            elif not pd.isnull(desc):
-                self.desc_dct[desc] = {self.a_s: acc_source,
-                                       self.a_d: acc_dest}
+        "Parse a line from the spreadsheet and update dict"
+        payee, desc = str(line[self.p]), str(line[self.d])
+        acc_source, acc_dest = str(line[self.a_s]), str(line[self.a_d])
+        if acc_dest == 'nan':
+            acc_dest = None  # convert nan to None
+        if desc:
+            val = {desc: {self.a_s: acc_source, self.a_d: acc_dest}}
+            if payee in self.dct.keys():
+                if desc not in self.dct[payee]:
+                    self.dct[payee].append(val)
+                else:
+                    raise KeyError("Desc already in dict. Illegal case")
+            else:
+                self.dct[payee] = [val]
 
     def create_categorizer(self, spreadsheet_path, sheet_name):
         "Parse spreadsheet and create categorizer dicts."
