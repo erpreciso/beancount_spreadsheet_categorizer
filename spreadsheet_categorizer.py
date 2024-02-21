@@ -43,6 +43,16 @@ class SpreadsheetCategorizer():
                 self.dct[payee] = {}
                 self.dct[payee][desc] = val
 
+    def sanity_checks(self):
+        "Sanity checks on dct."
+        p = self.dct
+        if 'nan' not in p.keys():
+            lg.warning('No payee catch-all clause')
+        for key in p.keys():
+            d = p[key]
+            if 'nan' not in d.keys():
+                lg.warning('No desc catch-all clause for {}'.format(key))
+
     def _create(self, spreadsheet_path, sheet_name):
         "Parse spreadsheet and create categorizer dicts."
         # TODO create catch-all clause if not existing in spreadsheet
@@ -53,6 +63,7 @@ class SpreadsheetCategorizer():
         assert all([c in df.columns
                     for c in [self.p, self.d, self.a_s, self.a_d]])
         df.apply(self._read_line, axis=1)
+        self.sanity_checks()
 
     def search_key(self, s: str, dct: dict) -> list:
         "Convert s to regex and search in dct keys for partial match."
