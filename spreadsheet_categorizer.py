@@ -5,6 +5,8 @@ import logging
 import pprint
 
 
+class SpreadsheetImportError(Exception):
+    pass
 
 
 class SpreadsheetCategorizer():
@@ -55,19 +57,25 @@ class SpreadsheetCategorizer():
 
     def sanity_checks(self):
         "Sanity checks on dct."
-        p = self.dct
-        if 'nan' not in p.keys():
+        if 'nan' not in self.dct.keys():
             self.lg.warning('No payee catch-all clause')
-        for key in p.keys():
-            d = p[key]
-            if 'nan' not in d.keys():
-                self.lg.warning('No desc catch-all clause for {}'.format(key))
+        for payee in self.dct.keys():
+            self.lg.debug('Sanity checking {}'.format(payee))
+            descs = self.dct[payee]
+            # warning for missing catch-all for payee
+            if 'nan' not in descs.keys():
+                self.lg.info('No desc catch-all clause for {}'.format(payee))
+            # error for one desc shadowing another
+            for desc in descs.keys():
+                self.lg.debug("  Search dups for {}".format(desc))
+                # expect a list long 1 as the case matches with itself
+                if len(self.search_key(desc, descs)) > 1:
+                    err = "Desc {} duplicated for {}.".format(desc, payee)
+                    raise SpreadsheetImportError(err)
 
     def _create(self, spreadsheet_path, sheet_name):
         "Parse spreadsheet and create categorizer dicts."
-        # TODO create catch-all clause if not existing in spreadsheet
-        # TODO ensure only one catch-all exists for each case
-        self.lg.debug('Created categorizer with file: {}'.format(spreadsheet_path))
+        self.lg.debug('Created categorizer with: {}'.format(spreadsheet_path))
         df = pd.read_excel(spreadsheet_path, engine='odf',
                            sheet_name=sheet_name)
         assert all([c in df.columns
@@ -75,14 +83,17 @@ class SpreadsheetCategorizer():
         df.apply(self._read_line, axis=1)
         self.sanity_checks()
 
-    def search_key(self, s: str, dct: dict) -> list:
+    def search_key(self, s: str, dct: dict, strict=False) -> list:
         "Convert s to regex and search in dct keys for partial match."
         rx = re.escape(s)
         keys = dct.keys()
-        matches = [k for k in keys if re.search(rx, k, re.IGNORECASE)]
+        if not strict:
+            matches = [k for k in keys if re.search(rx, k, re.IGNORECASE)]
+        elif strict:
+            matches = [k for k in keys if s.lower() == k.lower()]
         self.lg.debug(' Searches for {}: {}'.format(rx, matches))
         if len(matches) > 1:
-            self.lg.debug("Multiple keys matches search pattern {}".format(rx))
+            self.lg.info("  Multiple keys matches pattern {}".format(rx))
         return matches
 
     def match(self, p, d) -> tuple:
@@ -100,28 +111,32 @@ class SpreadsheetCategorizer():
         elif p and d:
             self.lg.debug('Match: p: {} and d: {}'.format(p, d))
             payee_keys = self.search_key(p, self.dct)
+            payee_keys_strict = self.search_key(p, self.dct, True)
             if len(payee_keys) > 1:
-                self.lg.debug('Multiple payees for {}. Going catch-all'.format(p))
-                return self.match('nan', 'nan')
+                if len(payee_keys_strict) == 0:
+                    self.lg.warning('Multiple payees {} -> catch-all'.format(p))
+                    return self.match('nan', 'nan')
+                else:
+                    # case where a payee shadows another, but it's intended
+                    payee_keys = payee_keys_strict
             elif len(payee_keys) == 0:
                 self.lg.debug('No payees for {}. Search for desc'.format(p))
                 return self.match('nan', d)
-            elif len(payee_keys) == 1:
-                self.lg.debug('Found {}'.format(payee_keys))
-                payee_key = payee_keys[0]
-                descs_dict = self.dct[payee_key]
-                desc_keys = self.search_key(d, descs_dict)
-                if len(desc_keys) == 0 and d == 'nan':
-                    self.lg.debug('No catch-all for {}. Catch-all all'.format(p))
-                    return self.match('nan', 'nan')
-                elif len(desc_keys) > 1:
-                    self.lg.debug('Multiple desc for {}. Search payee'.format(d))
-                    return self.match(p, 'nan')
-                elif len(desc_keys) == 0:
-                    self.lg.debug('No descs found for {}. Search payee'.format(d))
-                    return self.match(p, 'nan')
-                elif len(desc_keys) == 1:
-                    self.lg.debug('Found {}'.format(desc_keys))
-                    desc_key = desc_keys[0]
-                    res = self.dct[payee_key][desc_key]
-                    return res[self.a_s], res[self.a_d]
+            self.lg.debug('Found {}'.format(payee_keys))
+            payee_key = payee_keys[0]
+            descs_dict = self.dct[payee_key]
+            desc_keys = self.search_key(d, descs_dict)
+            if len(desc_keys) == 0 and d == 'nan':
+                self.lg.debug('No catch-all for {}. Catch-all all'.format(p))
+                return self.match('nan', 'nan')
+            elif len(desc_keys) > 1:
+                self.lg.warning('Multiple desc for {}. Search payee'.format(d))
+                return self.match(p, 'nan')
+            elif len(desc_keys) == 0:
+                self.lg.debug('No descs found for {}. Search payee'.format(d))
+                return self.match(p, 'nan')
+            elif len(desc_keys) == 1:
+                self.lg.debug('Found {}'.format(desc_keys))
+                desc_key = desc_keys[0]
+                res = self.dct[payee_key][desc_key]
+                return res[self.a_s], res[self.a_d]

@@ -15,56 +15,74 @@ parent = os.path.abspath(os.path.join(test_path, os.pardir))
 sys.path.append(parent)
 
 
-class TestMatches(unittest.TestCase):
+class TestMatchesCommon(unittest.TestCase):
+    spreadsheet_path = os.path.join(test_path, "categorizer.ods")
+    import spreadsheet_categorizer as sc
+
+
+class TestMatchesInvalidSpreadsheet(TestMatchesCommon):
     def setUp(self):
-        spreadsheet_path = os.path.join(test_path, "categorizer.ods")
+        self.sheet_name = "invalid"
+
+    def test_load_spreadsheet(self):
+        with self.assertRaises(self.sc.SpreadsheetImportError):
+            self.sc1 = self.sc.SpreadsheetCategorizer(self.spreadsheet_path,
+                                                      self.sheet_name,
+                                                      log_level=logging.WARNING)
+
+
+class TestMatchesValidSpreadsheet(TestMatchesCommon):
+    def setUp(self):
         sheet_name = "valid"
-        from spreadsheet_categorizer import SpreadsheetCategorizer as SC
-        self.sc = SC(spreadsheet_path, sheet_name,
-                     log_level=logging.ERROR)
+        self.sc1 = self.sc.SpreadsheetCategorizer(self.spreadsheet_path,
+                                                  sheet_name,
+                                                  log_level=logging.WARNING)
 
     def test_match_payee_desc_case_insensitive(self):
         """Validate that match is case insensitive."""
-        self.assertEqual(self.sc.match('gas station', 'tank car #1'),
+        self.assertEqual(self.sc1.match('gas station', 'tank car #1'),
                          ('Exp:Car:Volvo', 'Assets:Bank'))
-        self.assertEqual(self.sc.match('GAS station', 'tank CAR #1'),
+        self.assertEqual(self.sc1.match('GAS station', 'tank CAR #1'),
                          ('Exp:Car:Volvo', 'Assets:Bank'))
-        self.assertEqual(self.sc.match('Gas Station', 'Tank Car #2'),
+        self.assertEqual(self.sc1.match('Gas Station', 'Tank Car #2'),
                          ('Exp:Car:Saab', 'Assets:Bank'))
 
     def test_match_payee_only(self):
         """Match payee, without description."""
-        self.assertEqual(self.sc.match('gas station', None),
+        self.assertEqual(self.sc1.match('gas station', None),
                          ('Exp:Car', 'Assets:FIXME-NO-DESC'))
-        self.assertEqual(self.sc.match('gas station', ''),
+        self.assertEqual(self.sc1.match('gas station', ''),
                          ('Exp:Car', 'Assets:FIXME-NO-DESC'))
 
     def test_match_desc_only(self):
-        self.assertEqual(self.sc.match(None, 't-shirt'),
+        self.assertEqual(self.sc1.match(None, 't-shirt'),
                          ('Exp:Clothes', None))
-        self.assertEqual(self.sc.match('', 't-shirt'),
+        self.assertEqual(self.sc1.match('', 't-shirt'),
                          ('Exp:Clothes', None))
-        self.assertEqual(self.sc.match('', 'shirt'),
+        self.assertEqual(self.sc1.match('', 'shirt'),
                          ('Exp:Clothes', None))
-        self.assertEqual(self.sc.match('', 'pants'),
+        self.assertEqual(self.sc1.match('', 'pants'),
                          ('Exp:CATCH-ALL', 'Assets:CATCH-ALL'))
 
     def test_match_punctuation(self):
-        self.assertEqual(self.sc.match('A.B.C.', 'service'),
+        self.assertEqual(self.sc1.match('A.B.C.', 'service'),
                          ('Exp:Software', 'Assets:Cash'))
 
     def test_match_ambiguous_description(self):
-        self.assertEqual(self.sc.match('gas station', 'tank car'),
+        self.assertEqual(self.sc1.match('gas station', 'tank car'),
                          ('Exp:Car', 'Assets:FIXME-NO-DESC'))
 
+    def test_match_ambiguous_payee(self):
+        self.assertEqual(self.sc1.match('gas stat', 'tank car #1'),
+                         ('Exp:Car:Porsche', 'Assets:Bank'))
+
     def test_match_ambiguous_payee_and_desc(self):
-        self.assertEqual(self.sc.match('gas', 'tank'),
+        self.assertEqual(self.sc1.match('gas', 'tank'),
                          ('Exp:CATCH-ALL', 'Assets:CATCH-ALL'))
 
     def test_match_catchalls(self):
-        self.assertEqual(self.sc.match('a.b.c.', 'software'),
+        self.assertEqual(self.sc1.match('a.b.c.', 'software'),
                          ('Exp:CATCH-ALL', 'Assets:CATCH-ALL'))
-
 
 
 if __name__ == '__main__':
