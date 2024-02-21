@@ -14,11 +14,17 @@ lg.setLevel(logging.INFO)
 class SpreadsheetCategorizer():
 
     def __init__(self, spreadsheet_path, sheet_name, cols=None):
+        """Initialize class."""
         if not cols:
             self.p = 'payee'
             self.d = 'description'
             self.a_s = 'account-source'
             self.a_d = 'account-destination'
+        else:
+            assert type(cols) == dict
+            assert all([x in cols.keys() for x in ['p', 'd', 'a_s', 'a_d']])
+            self.p, self.d = cols['p'], cols['d']
+            self.a_s, self.a_d = cols['a_s'], cols['a_d']
         self.dct = {}
         self._create(spreadsheet_path, sheet_name)
 

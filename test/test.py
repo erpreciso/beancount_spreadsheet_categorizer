@@ -22,6 +22,7 @@ class TestMatches(unittest.TestCase):
         self.sc = SC(spreadsheet_path, sheet_name)
 
     def test_match_payee_desc_case_insensitive(self):
+        """Validate that match is case insensitive."""
         self.assertEqual(self.sc.match('gas station', 'tank car #1'),
                          ('Exp:Car:Volvo', 'Assets:Bank'))
         self.assertEqual(self.sc.match('GAS station', 'tank CAR #1'),
@@ -30,8 +31,21 @@ class TestMatches(unittest.TestCase):
                          ('Exp:Car:Saab', 'Assets:Bank'))
 
     def test_match_payee_only(self):
+        """Match payee, without description."""
         self.assertEqual(self.sc.match('gas station', None),
                          ('Exp:Car', 'Assets:FIXME-NO-DESC'))
+        self.assertEqual(self.sc.match('gas station', ''),
+                         ('Exp:Car', 'Assets:FIXME-NO-DESC'))
+
+    def test_match_desc_only(self):
+        self.assertEqual(self.sc.match(None, 't-shirt'),
+                         ('Exp:Clothes', None))
+        self.assertEqual(self.sc.match('', 't-shirt'),
+                         ('Exp:Clothes', None))
+        self.assertEqual(self.sc.match('', 'shirt'),
+                         ('Exp:Clothes', None))
+        self.assertEqual(self.sc.match('', 'pants'),
+                         ('Exp:CATCH-ALL', 'Assets:CATCH-ALL'))
 
     def test_match_punctuation(self):
         self.assertEqual(self.sc.match('A.B.C.', 'service'),
