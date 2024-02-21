@@ -34,7 +34,7 @@ class TestMatches(unittest.TestCase):
                          ('Exp:Car', 'Assets:FIXME-NO-DESC'))
 
     def test_match_punctuation(self):
-        self.assertEqual(self.sc.match('A.B.C.', 'software'),
+        self.assertEqual(self.sc.match('A.B.C.', 'service'),
                          ('Exp:Software', 'Assets:Cash'))
 
     def test_match_ambiguous_description(self):
@@ -43,6 +43,10 @@ class TestMatches(unittest.TestCase):
 
     def test_match_ambiguous_payee_and_desc(self):
         self.assertEqual(self.sc.match('gas', 'tank'),
+                         ('Exp:CATCH-ALL', 'Assets:CATCH-ALL'))
+
+    def test_match_catchalls(self):
+        self.assertEqual(self.sc.match('a.b.c.', 'software'),
                          ('Exp:CATCH-ALL', 'Assets:CATCH-ALL'))
 
 

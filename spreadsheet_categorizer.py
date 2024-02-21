@@ -8,7 +8,7 @@ import pdb
 
 logging.basicConfig(format='%(levelname)s:%(message)s')
 lg = logging.getLogger("lg")
-lg.setLevel(logging.DEBUG)
+lg.setLevel(logging.INFO)
 
 
 class SpreadsheetCategorizer():
@@ -90,7 +90,10 @@ class SpreadsheetCategorizer():
                 payee_key = payee_keys[0]
                 descs_dict = self.dct[payee_key]
                 desc_keys = self.search_key(d, descs_dict)
-                if len(desc_keys) > 1:
+                if len(desc_keys) == 0 and d == 'nan':
+                    lg.debug('No catch-all for {}. Catch-all all'.format(p))
+                    return self.match('nan', 'nan')
+                elif len(desc_keys) > 1:
                     lg.debug('Multiple desc for {}. Search payee'.format(d))
                     return self.match(p, 'nan')
                 elif len(desc_keys) == 0:
