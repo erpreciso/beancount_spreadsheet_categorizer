@@ -3,6 +3,7 @@ import os
 import pdb
 import inspect
 import unittest
+import logging
 
 try:
     test_path = os.path.dirname(__file__)
@@ -17,9 +18,10 @@ sys.path.append(parent)
 class TestMatches(unittest.TestCase):
     def setUp(self):
         spreadsheet_path = os.path.join(test_path, "categorizer.ods")
-        sheet_name = "Sheet1"
+        sheet_name = "valid"
         from spreadsheet_categorizer import SpreadsheetCategorizer as SC
-        self.sc = SC(spreadsheet_path, sheet_name)
+        self.sc = SC(spreadsheet_path, sheet_name,
+                     log_level=logging.ERROR)
 
     def test_match_payee_desc_case_insensitive(self):
         """Validate that match is case insensitive."""
