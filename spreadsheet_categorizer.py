@@ -8,10 +8,11 @@ import pdb
 
 logging.basicConfig(format='%(levelname)s:%(message)s')
 lg = logging.getLogger("lg")
-lg.setLevel(logging.INFO)
+lg.setLevel(logging.DEBUG)
 
 
 class SpreadsheetCategorizer():
+
     def __init__(self, spreadsheet_path, sheet_name, cols=None):
         if not cols:
             self.p = 'payee'
@@ -32,64 +33,71 @@ class SpreadsheetCategorizer():
         if acc_dest == 'nan':
             acc_dest = None  # convert nan to None
         if desc:
-            val = {desc: {self.a_s: acc_source, self.a_d: acc_dest}}
+            val = {self.a_s: acc_source, self.a_d: acc_dest}
             if payee in self.dct.keys():
-                if desc not in self.dct[payee]:
-                    self.dct[payee].append(val)
+                if desc not in self.dct[payee].keys():
+                    self.dct[payee][desc] = val
                 else:
                     raise KeyError("Desc already in dict. Illegal case")
             else:
-                self.dct[payee] = [val]
+                self.dct[payee] = {}
+                self.dct[payee][desc] = val
 
     def _create(self, spreadsheet_path, sheet_name):
         "Parse spreadsheet and create categorizer dicts."
+        # TODO create catch-all clause if not existing in spreadsheet
+        # TODO ensure only one catch-all exists for each case
         lg.debug('Created categorizer with file: {}'.format(spreadsheet_path))
         df = pd.read_excel(spreadsheet_path, engine='odf',
                            sheet_name=sheet_name)
-        self.payee_desc_dct, self.payee_dct, self.desc_dct = {}, {}, {}
         assert all([c in df.columns
                     for c in [self.p, self.d, self.a_s, self.a_d]])
         df.apply(self._read_line, axis=1)
 
-    def search_key(self, s):
-        "Convert s to regex and search in self.dct keys for partial match."
-        rx = re.compile(s)
-        keys = self.dct.keys()
+    def search_key(self, s: str, dct: dict) -> list:
+        "Convert s to regex and search in dct keys for partial match."
+        rx = re.escape(s)
+        keys = dct.keys()
         matches = [k for k in keys if re.search(rx, k, re.IGNORECASE)]
-        if not matches:
-            return None
+        lg.debug(' Searches for {}: {}'.format(rx, matches))
         if len(matches) > 1:
-            err = "Multiple keys matches search pattern {}".format(rx)
-            raise KeyError(err)
-        else:
-            return matches[0]
+            lg.debug("Multiple keys matches search pattern {}".format(rx))
+        return matches
 
-    def match(self, p, d):
-        "Match P and D with dict"
-        for keypd in self.payee_desc_dct:
-            payee = self.payee_desc_dct[keypd][self.p]
-            desc = self.payee_desc_dct[keypd][self.d]
-            if not d:  # to search for acc_dest using only payee
-                if not pd.isnull(payee) and not pd.isnull(desc) and\
-                   re.search(payee, p, re.IGNORECASE):
-                    k = self.payee_desc_dct[keypd]
-                    # TODO add validation that there is only one acc_dest
-                    return k[self.a_c], k[self.a_d]
-            if not pd.isnull(payee) and not pd.isnull(desc) and\
-               re.search(payee, p, re.IGNORECASE) and \
-               re.search(desc, d, re.IGNORECASE):
-                k = self.payee_desc_dct[keypd]
-                return k[self.a_s], k[self.a_d]
-        for payee in self.payee_dct:
-            if re.search(payee, p, re.IGNORECASE):
-                k = self.payee_dct[payee]
-                return k[self.a_s], k[self.a_d]
-        for desc in self.desc_dct:
-            if re.search(desc, d, re.IGNORECASE):
-                k = self.desc_dct[desc]
-                return k[self.a_s], k[self.a_d]
-        return None, None
-
-
-    # TODO: escape punctuation in dict
-    # catchall clause if payee only
+    def match(self, p, d) -> tuple:
+        "Return acc_source and acc_dest associated with p and d args."
+        # Ensure when p or d are None it call-back with 'nan' for the missing.
+        if not p and not d:
+            lg.debug('Catch-all: p: None and d: None')
+            return self.match('nan', 'nan')
+        elif p and not d:
+            lg.debug('Match: p: {} and d: None'.format(p))
+            return self.match(p, 'nan')
+        elif not p and d:
+            lg.debug('Match: p: None and d: {}'.format(d))
+            return self.match('nan', d)
+        elif p and d:
+            lg.debug('Match: p: {} and d: {}'.format(p, d))
+            payee_keys = self.search_key(p, self.dct)
+            if len(payee_keys) > 1:
+                lg.debug('Multiple payees for {}. Going catch-all'.format(p))
+                return self.match('nan', 'nan')
+            elif len(payee_keys) == 0:
+                lg.debug('No payees for {}. Search for desc'.format(p))
+                return self.match('nan', d)
+            elif len(payee_keys) == 1:
+                lg.debug('Found {}'.format(payee_keys))
+                payee_key = payee_keys[0]
+                descs_dict = self.dct[payee_key]
+                desc_keys = self.search_key(d, descs_dict)
+                if len(desc_keys) > 1:
+                    lg.debug('Multiple desc for {}. Search payee'.format(d))
+                    return self.match(p, 'nan')
+                elif len(desc_keys) == 0:
+                    lg.debug('No descs found for {}. Search payee'.format(d))
+                    return self.match(p, 'nan')
+                elif len(desc_keys) == 1:
+                    lg.debug('Found {}'.format(desc_keys))
+                    desc_key = desc_keys[0]
+                    res = self.dct[payee_key][desc_key]
+                    return res[self.a_s], res[self.a_d]

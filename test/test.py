@@ -33,6 +33,18 @@ class TestMatches(unittest.TestCase):
         self.assertEqual(self.sc.match('gas station', None),
                          ('Exp:Car', 'Assets:FIXME-NO-DESC'))
 
+    def test_match_punctuation(self):
+        self.assertEqual(self.sc.match('A.B.C.', 'software'),
+                         ('Exp:Software', 'Assets:Cash'))
+
+    def test_match_ambiguous_description(self):
+        self.assertEqual(self.sc.match('gas station', 'tank car'),
+                         ('Exp:Car', 'Assets:FIXME-NO-DESC'))
+
+    def test_match_ambiguous_payee_and_desc(self):
+        self.assertEqual(self.sc.match('gas', 'tank'),
+                         ('Exp:CATCH-ALL', 'Assets:CATCH-ALL'))
+
 
 
 if __name__ == '__main__':
