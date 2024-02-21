@@ -6,13 +6,14 @@ import pprint
 
 
 class SpreadsheetImportError(Exception):
+    """Error during import of spreadsheet."""
     pass
 
 
 class SpreadsheetCategorizer():
 
-    def __init__(self, spreadsheet_path, sheet_name, cols=None,
-                 log_level=logging.INFO):
+    def __init__(self, spreadsheet_path, sheet_name,
+                 cols=None, log_level=logging.INFO):
         """Initialize class."""
         logging.basicConfig(format='%(levelname)s:%(message)s')
         self.lg = logging.getLogger("lg")
@@ -46,11 +47,11 @@ class SpreadsheetCategorizer():
                 if desc not in self.dct[payee].keys():
                     self.dct[payee][desc] = val
                 else:
-                    err = "Already in dict. Illegal case\n"
+                    err = "Payee already in dict. Illegal case\n"
                     err += "Payee: {}\n".format(payee)
                     err += "Desc:  {}\n".format(desc)
                     err += "Existing: {}".format(self.dct[payee])
-                    raise KeyError(err)
+                    raise SpreadsheetImportError(err)
             else:
                 self.dct[payee] = {}
                 self.dct[payee][desc] = val

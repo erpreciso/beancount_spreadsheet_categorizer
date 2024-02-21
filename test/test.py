@@ -21,14 +21,20 @@ class TestMatchesCommon(unittest.TestCase):
 
 
 class TestMatchesInvalidSpreadsheet(TestMatchesCommon):
-    def setUp(self):
-        self.sheet_name = "invalid"
 
-    def test_load_spreadsheet(self):
+    def test_load_spreadsheet_conflicting_cases(self):
+        sheet_name = "invalid-1"
         with self.assertRaises(self.sc.SpreadsheetImportError):
-            self.sc1 = self.sc.SpreadsheetCategorizer(self.spreadsheet_path,
-                                                      self.sheet_name,
-                                                      log_level=logging.WARNING)
+            sc_class = self.sc.SpreadsheetCategorizer
+            self.sc1 = sc_class(self.spreadsheet_path, sheet_name,
+                                log_level=logging.WARNING)
+
+    def test_load_spreadsheet_duplicate_payee(self):
+        sheet_name = "invalid-2"
+        with self.assertRaises(self.sc.SpreadsheetImportError):
+            sc_class = self.sc.SpreadsheetCategorizer
+            self.sc1 = sc_class(self.spreadsheet_path, sheet_name,
+                                log_level=logging.WARNING)
 
 
 class TestMatchesValidSpreadsheet(TestMatchesCommon):
