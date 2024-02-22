@@ -16,7 +16,7 @@ sys.path.append(parent)
 
 
 class TestMatchesCommon(unittest.TestCase):
-    spreadsheet_path = os.path.join(test_path, "categorizer.ods")
+    spreadsheet_path = os.path.join(test_path, "test-categorizer.ods")
     import spreadsheet_categorizer as sc
 
 
