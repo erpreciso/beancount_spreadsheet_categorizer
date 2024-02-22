@@ -1,0 +1,4 @@
+*.html
+/__pycache__/
+/test/__pycache__/
+/test/.~lock.test-categorizer.ods#
