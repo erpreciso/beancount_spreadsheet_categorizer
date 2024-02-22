@@ -1,3 +1,25 @@
+* Explanation
+** Motivation
+
+Long time user of beancount and the [[https://github.com/bratekarate/beancount-categorizer][Beancount Categorizer]], a need
+materialized to delegate categorization of entries to an unskilled
+other person.
+
+Therefore, constraints:
+- Data entry in spreadsheet-like format.
+- Irrelevance of ordering of clauses, i.e. any sorting or ordering
+  manipulation should not affect matching logic.
+- Partial matching.
+- Case insensitive.
+- Punctuation allowed.
+
+#+CAPTION: Categorizer spreadsheet example
+#+NAME:   fig:test-spreadsheet
+#+ATTR_HTML: alt="Screenshot of the test spreadsheet"
+#+ATTR_HTML: :width 600px
+[[./test/test-spreadsheet-screenshot.png]]
+
+
 * Tutorial
 ** Install
 
@@ -207,26 +229,8 @@ applies.
   match('a.b.c.', 'software') == 'Exp:CATCH-ALL', 'Assets:CATCH-ALL'
 #+end_src
 
-* Explanation
-** Motivation
-
-Long time user of beancount and the [[https://github.com/bratekarate/beancount-categorizer][Beancount Categorizer]], a need
-materialized to delegate categorization of entries to an unskilled
-other person.
-Therefore, constraints:
-- data entry is in excel
-- list should be unordered, i.e. any sorting should not affect
-  matching logic
-  
-** Future
-- Improve documentation
-- Package the module
-- Full example including the importer
-- Support orgmode table as input table
-- Support Microsoft Excel spreadsheet
 * Reference
 ** API guide (DRAFT)
-
 
 *** class ~SpreadsheetCategorizer~
 
@@ -246,6 +250,9 @@ Take ~log_level~ as argument.
   - the description to be matched
   - the account source to be returned
   - the account destination to be returned
+- If these four columns are not named with standard names, a dict with
+  the preferred names must be passed to the constructor.
+- It could contain additional columns (e.g. comments, sorting keys).
 - It should not contain empty rows.
 - It should not contain duplicate rows.
 - Warnings will be issued if the import detect situations like missing
@@ -253,3 +260,18 @@ Take ~log_level~ as argument.
   compromize the logic.
 - The import stops if, instead, illegal cases are present, like
   duplicated cases.
+** External references
+
+- [[https://github.com/beancount/beancount/][Beancount on github]]
+- [[https://github.com/bratekarate/beancount-categorizer][beancount-categorizer]]
+- [[https://diataxis.fr/][Diátaxis - A systematic approach to technical documentation authoring.]]
+  
+** Future
+
+- Improve documentation.
+  - Add docstrings.
+- Package the module.
+- Add full example, including an importer to show full workflow.
+- Support input of [[https://orgmode.org/manual/Tables.html][orgmode tables]].
+- Support Microsoft Excel spreadsheet.
+
