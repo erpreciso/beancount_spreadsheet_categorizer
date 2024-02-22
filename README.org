@@ -1,0 +1,255 @@
+* Tutorial
+** Install
+
+- Place the file ~spreadsheet_categorizer.py~ in your
+  ~PYTHONPATH~. Alternatively, use this line to add the folder where
+  you saved the module to ~PYTHONPATH~, integrating <full path> with
+  the full absolute path:
+
+  #+begin_src python
+    sys.path.append("<full path>/projects/beancount_spreadsheet_categorizer")
+  #+end_src
+  
+- Create the categorizer spreadsheet starting from the template
+  ~categorizer.ods~. Add at least one entry.
+
+** Setup
+
+*** Import
+
+  #+begin_src python
+    from spreadsheet_categorizer import SpreadsheetCategorizer as SC
+  #+end_src
+
+*** Initialize
+
+  Initialize the categorizer object in the ~__init__~ of your
+  importer, so it can be called by the extraction methods.
+
+  #+begin_src python
+    class MyImporter(importer.ImporterProtocol):
+        def __init__(self):
+            spreadsheet_path = 'test/categorizer.ods'
+            sheet_name = 'valid'
+            self.SC = SC(spreadsheet_path, sheet_name)
+  #+end_src
+  
+** Apply
+
+Your imported should have some code that create transactions using
+information extracted from the source. Call the method ~match~ from
+the categorizer object initialized in ~init~, and pass the two
+arguments ~payee~ and ~description~ (sometimes called 'narration' in
+beancount code).  One or both arguments can be ~None~ and will be
+matched as per [[id:3a275646-801d-4fbd-86f3-b431c5cdcb24][matching logic]].
+
+As example, see below an importer class method that calls ~match~ to
+get the two transaction's posting accounts.
+
+#+begin_src python
+  def create_posting(self, line, cedente):
+      desc = line['Desc']
+      acc_source, _ = self.SC.match(cedente, desc)
+      if not acc_source:
+          acc_source = 'Expenses:FIXME'
+      price = float(line['Prezzo totale'])
+      tax = float(line['Aliquota IVA'])
+      price_withtax = round(price + price * tax / 100, 2)
+      amount = Amount(Decimal('{:.2f}'.format(price_withtax)), 'EUR')
+      meta = {'description': self.clean_string(desc)}
+      p = data.Posting(acc_source, amount, None, None, None, meta)
+      return p
+#+end_src
+
+In this case, the method is passed a dataframe ~line~ with the columns
+~['Desc', 'Prezzo', 'Aliquota IVA']~; in addition, the payee is passed
+as ~cedente~. The ~match~ method is called to get only the source
+account, and the destination account is ignored. If the source account
+is not found, the posting is created with a ~Expenses:FIXME~ account.
+
+The destination account of the same transaction is extracted somewhere
+else in the code:
+
+#+begin_src python
+  _, acc_dest = self.SC.match(cedente, None)
+#+end_src
+
+In this case, the description is not passed as parameter since, as
+part of this importer matching logic, there is one and only one
+destination account by payee, and 'catch-all' clauses are present for
+every payee in the spreadsheet (behaviour of catch-all cases to be
+applied when missing payee or description can be controlled by setting
+them up in the spreadsheet, see [[id:3a275646-801d-4fbd-86f3-b431c5cdcb24][matching logic]].
+
+* How-to
+** Matching logic
+:PROPERTIES:
+:ID:       3a275646-801d-4fbd-86f3-b431c5cdcb24
+:END:
+
+Matching is done with the method [[id:cd6fa471-5545-4db0-af99-7f1d880fe742][~search_key~]] that does
+1. a regex search of the payee, therefore allowing partial match
+2. if more matches are found, a string match, allowing only exact match.
+
+
+The regex is escaped before the matching, to allow for punctuation in
+the search payee or description. Case is always insensitive.
+
+If only the payee, or only the description, or neither of them are
+passed, the method search for a 'nan' in place of the missing
+argument; during categorizer initialization, the catch-all cases are
+compiled using this 'nan' string to identify cases that should match
+everything.
+
+Example cases are more eloquent. Below, the match and the
+corresponding relevant entries. All these cases are in unittest
+~test/test.py~.
+
+*** Match payee and description, case insensitive
+
+| payee       | description | account-source | account-destination |
+|-------------+-------------+----------------+---------------------|
+| Gas Station | Tank car #1 | Exp:Car:Volvo  | Assets:Bank         |
+
+#+begin_src python
+  match('gas station', 'tank car #1') == 'Exp:Car:Volvo', 'Assets:Bank'
+#+end_src
+
+*** Match payee only
+
+| payee       | description | account-source | account-destination   |
+|-------------+-------------+----------------+-----------------------|
+| Gas Station |             | Exp:Car        | Assets:FIXME-NO-DESC' |
+
+#+begin_src python
+  match('gas station', '') == 'Exp:Car', 'Assets:FIXME-NO-DESC'
+#+end_src
+
+*** Match description only
+
+| payee | description | account-source | account-destination |
+|-------+-------------+----------------+---------------------|
+|       | t-shirt     | Exp:Clothes    |                     |
+
+#+begin_src python
+  match('', 't-shirt') == 'Exp:Clothes', None
+#+end_src
+
+*** Partial match
+
+| payee | description | account-source | account-destination |
+|-------+-------------+----------------+---------------------|
+|       | t-shirt     | Exp:Clothes    |                     |
+
+#+begin_src python
+  match('', 'shirt') == 'Exp:Clothes', None
+#+end_src
+
+*** Exact match
+
+| payee       | description | account-source  | account-destination |
+|-------------+-------------+-----------------+---------------------|
+| Gas Station | Tank car #1 | Exp:Car:Volvo   | Assets:Bank         |
+| Gas stat    | Tank car #1 | Exp:Car:Porsche | Assets:Bank         |
+
+The search payee is partially matched with the first one, and exactly
+matched with the second. Only the second is returned.
+
+#+begin_src python
+  match('gas stat', 'tank car #1') == 'Exp:Car:Porsche', 'Assets:Bank'
+#+end_src
+
+*** Ambiguous description
+
+| payee       | description | account-source | account-destination  |
+|-------------+-------------+----------------+----------------------|
+| Gas Station | Tank car #1 | Exp:Car:Volvo  | Assets:Bank          |
+| Gas Station | Tank car #2 | Exp:Car:Saab   | Assets:Bank          |
+| Gas Station |             | Exp:Car        | Assets:FIXME-NO-DESC |
+
+The search description could match two cases, therefore it is ignored
+and the payee catch-all clause is matched.
+
+#+begin_src python
+  match('gas station', 'tank car') == 'Exp:Car', 'Assets:FIXME-NO-DESC'
+#+end_src
+
+*** Ambiguous payee and description
+
+| payee       | description | account-source  | account-destination  |
+|-------------+-------------+-----------------+----------------------|
+| Gas Station | Tank car #1 | Exp:Car:Volvo   | Assets:Bank          |
+| Gas Station | Tank car #2 | Exp:Car:Saab    | Assets:Bank          |
+| Gas Station |             | Exp:Car         | Assets:FIXME-NO-DESC |
+| Gas stat    | Tank car #1 | Exp:Car:Porsche | Assets:Bank          |
+|             |             | Exp:CATCH-ALL   | Assets:CATCH-ALL     |
+
+Both search payee and description could match multiple cases,
+therefore they are both ignored and the general catch-all clause is
+matched.
+
+#+begin_src python
+  match('gas', 'tank') == 'Exp:CATCH-ALL', 'Assets:CATCH-ALL'
+#+end_src
+
+*** Case not found
+
+| payee  | description | account-source | account-destination |
+|--------+-------------+----------------+---------------------|
+| a.b.c. | service     | Exp:Software   | Assets:Cash         |
+|        |             | Exp:CATCH-ALL  | Assets:CATCH-ALL    |
+
+Case is not found; while payee exists in the table, there isn't a
+catch-all clause for that payee. Therefore, general catch-all clause
+applies.
+
+#+begin_src python
+  match('a.b.c.', 'software') == 'Exp:CATCH-ALL', 'Assets:CATCH-ALL'
+#+end_src
+
+* Explanation
+** Motivation
+
+Long time user of beancount and the [[https://github.com/bratekarate/beancount-categorizer][Beancount Categorizer]], a need
+materialized to delegate categorization of entries to an unskilled
+other person.
+Therefore, constraints:
+- data entry is in excel
+- list should be unordered, i.e. any sorting should not affect
+  matching logic
+  
+** Future
+- Improve documentation
+- Package the module
+- Full example including the importer
+- Support orgmode table as input table
+- Support Microsoft Excel spreadsheet
+* Reference
+** API guide (DRAFT)
+
+
+*** class ~SpreadsheetCategorizer~
+
+**** method ~__init__~
+
+Take ~log_level~ as argument.
+**** method ~search_key~
+:PROPERTIES:
+:ID:       cd6fa471-5545-4db0-af99-7f1d880fe742
+:END:
+** Categorizer spreadsheet specifications
+
+- Must be an ODS spreadsheet (see [[https://en.wikipedia.org/wiki/OpenDocument][Open Document Format for Office
+  Applications (ODF)]].
+- Must have four columns containing:
+  - the payee to be matched
+  - the description to be matched
+  - the account source to be returned
+  - the account destination to be returned
+- It should not contain empty rows.
+- It should not contain duplicate rows.
+- Warnings will be issued if the import detect situations like missing
+  catch-all payees that, while generating undesired results, do not
+  compromize the logic.
+- The import stops if, instead, illegal cases are present, like
+  duplicated cases.
