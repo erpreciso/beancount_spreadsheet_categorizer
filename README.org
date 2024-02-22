@@ -74,7 +74,7 @@ get the two transaction's posting accounts.
       acc_source, _ = self.SC.match(cedente, desc)
       if not acc_source:
           acc_source = 'Expenses:FIXME'
-      price = float(line['Prezzo totale'])
+      price = float(line['Prezzo'])
       tax = float(line['Aliquota IVA'])
       price_withtax = round(price + price * tax / 100, 2)
       amount = Amount(Decimal('{:.2f}'.format(price_withtax)), 'EUR')
@@ -90,7 +90,7 @@ account, and the destination account is ignored. If the source account
 is not found, the posting is created with a ~Expenses:FIXME~ account.
 
 The destination account of the same transaction is extracted somewhere
-else in the code:
+else in the code to create the main transaction:
 
 #+begin_src python
   _, acc_dest = self.SC.match(cedente, None)
@@ -101,7 +101,7 @@ part of this importer matching logic, there is one and only one
 destination account by payee, and 'catch-all' clauses are present for
 every payee in the spreadsheet (behaviour of catch-all cases to be
 applied when missing payee or description can be controlled by setting
-them up in the spreadsheet, see [[id:3a275646-801d-4fbd-86f3-b431c5cdcb24][matching logic]].
+them up in the spreadsheet, see [[id:3a275646-801d-4fbd-86f3-b431c5cdcb24][matching logic]].)
 
 * How-to
 ** Matching logic
@@ -109,7 +109,7 @@ them up in the spreadsheet, see [[id:3a275646-801d-4fbd-86f3-b431c5cdcb24][match
 :ID:       3a275646-801d-4fbd-86f3-b431c5cdcb24
 :END:
 
-Matching is done with the method [[id:cd6fa471-5545-4db0-af99-7f1d880fe742][~search_key~]] that does
+Matching is done with the method ~search_key~ that does
 1. a regex search of the payee, therefore allowing partial match
 2. if more matches are found, a string match, allowing only exact match.
 
