@@ -14,7 +14,14 @@ class SpreadsheetCategorizer():
 
     def __init__(self, spreadsheet_path, sheet_name,
                  cols=None, log_level=logging.INFO):
-        """Initialize class."""
+        """Initialize class.
+
+        :param spreadsheet_path: Absolute path of spreadsheet categorizer input
+        :param sheet_name: Name of sheet input
+        :param cols: Optional dictionary with spreadsheet column names
+        :param log_level: Level of logging for the import. Default logging.INFO
+
+        """
         logging.basicConfig(format='%(levelname)s:%(message)s')
         self.lg = logging.getLogger("lg")
         self.lg.setLevel(log_level)
