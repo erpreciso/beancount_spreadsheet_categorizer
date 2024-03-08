@@ -104,6 +104,84 @@ applied when missing payee or description can be controlled by setting
 them up in the spreadsheet, see [[id:3a275646-801d-4fbd-86f3-b431c5cdcb24][matching logic]].)
 
 * How-to
+** Hook the categorizer to an importer
+
+Below a simple example to use the spreadsheet categorizer in an importer.
+
+It uses the 'hook' facility built with [[https://github.com/beancount/smart_importer][smart_importer]].
+
+*** file 'categorizer.py' in your "importers" folder to be used by bean-extract
+
+Built on the `ImporterHook' class in [[https://github.com/beancount/smart_importer/blob/main/smart_importer/hooks.py][hooks.py]]
+
+#+begin_src python
+  import pandas as pd
+  from beancount.core import data
+  from smart_importer.hooks import ImporterHook
+  from spreadsheet_categorizer import SpreadsheetCategorizer as SC
+
+
+  class AppliedSpreadsheetCategorizer(ImporterHook):
+      def __init__(self, spreadsheet, sheet_name):
+          self.asc = SC(spreadsheet, sheet_name)
+
+      def __call__(self, importer, file, imported_entries, existing_entries):
+          return [self._process(entry) for entry in imported_entries]
+
+      def _process(self, entry):
+          """Process the entry by adding/replacing the posting(s).
+
+          If entry is not a transaction, pass it unchanged."""
+          # exclude all non-transaction entries
+          if type(entry) != data.Transaction or len(entry.postings) != 1:
+              return entry
+          # use the spreadsheet importer: match the payee and narration
+          acc_source, acc_dest = self.asc.match(entry.payee, entry.narration)
+          # create the main posting
+          source_posting = data.Posting(acc_source, None, None, None, None, None)
+          if acc_dest and not pd.isnull(acc_dest):
+              # if both accounts are specified in the spreadsheet, replace also
+              # the existing posting with the new one
+              units = entry.postings[0].units
+              meta = entry.postings[0].meta
+              dest_posting = data.Posting(acc_dest, units, None, None, None,
+                                          meta)
+              entry.postings.clear()
+              entry.postings.append(source_posting)
+              entry.postings.append(dest_posting)
+          else:
+              # otherwise, simply append or insert the new posting
+              if entry.postings[0].units.number > 0:
+                  entry.postings.append(source_posting)
+              else:
+                  entry.postings.insert(0, source_posting)
+          return entry
+
+#+end_src
+
+*** file 'config.py' used by bean-extract
+
+#+begin_src python
+  from smart_importer import apply_hooks
+  from smart_importer import PredictPostings as predict
+
+  # import my custom importer
+  from my_custom_importer_module import MyCustomImporter
+
+  # import the categorizer class built on smart_importer
+  from categorizer import AppliedSpreadsheetCategorizer as ASC
+
+  SPREADSHEET_PATH = "~/projects/spreadsheet-importer.ods"
+
+  spreadsheet_categorizer_instance = ASC(SPREADSHEET_PATH, 'categorizer-sheet')
+
+  # the below applies both the spreadsheet categorizer, and the suggested
+  # PredictPostings hook
+  CONFIG = [apply_hooks(MyCustomImporter(), [spreadsheet_categorizer_instance,
+                                            predict()])]
+
+#+end_src
+
 ** Matching logic
 :PROPERTIES:
 :ID:       3a275646-801d-4fbd-86f3-b431c5cdcb24
@@ -228,7 +306,6 @@ applies.
 #+begin_src python
   match('a.b.c.', 'software') == 'Exp:CATCH-ALL', 'Assets:CATCH-ALL'
 #+end_src
-
 * Reference
 ** API guide (DRAFT)
 
