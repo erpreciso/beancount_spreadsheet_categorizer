@@ -254,6 +254,8 @@ Take ~log_level~ as argument.
   the preferred names must be passed to the constructor.
 - It could contain additional columns (e.g. comments, sorting keys).
 - It should not contain empty rows.
+- It must contain a catch-all clause when both payee and description
+  are missing.
 - It should not contain duplicate rows.
 - Warnings will be issued if the import detect situations like missing
   catch-all payees that, while generating undesired results, do not

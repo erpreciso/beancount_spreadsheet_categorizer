@@ -36,6 +36,13 @@ class TestMatchesInvalidSpreadsheet(TestMatchesCommon):
             self.sc1 = sc_class(self.spreadsheet_path, sheet_name,
                                 log_level=logging.WARNING)
 
+    def test_load_spreadsheet_missing_catchall(self):
+        sheet_name = "invalid-3"
+        with self.assertRaises(self.sc.SpreadsheetImportError):
+            sc_class = self.sc.SpreadsheetCategorizer
+            self.sc1 = sc_class(self.spreadsheet_path, sheet_name,
+                                log_level=logging.DEBUG)
+
 
 class TestMatchesValidSpreadsheet(TestMatchesCommon):
     def setUp(self):
